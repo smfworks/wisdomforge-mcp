@@ -1,0 +1,40 @@
+{
+  "name": "wisdomforge-mcp",
+  "version": "1.0.0",
+  "description": "Read-only MCP server for the SMF WisdomForge curriculum.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "wisdomforge-mcp": "./dist/stdio.js"
+  },
+  "files": [
+    "dist",
+    "data",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "smoke": "tsx scripts/smoke.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "dev:http": "tsx src/http.ts",
+    "start": "node dist/stdio.js",
+    "start:http": "node dist/http.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.30",
+    "tsx": "^4.20.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="WisdomForge">
+  <title>WisdomForge</title>
+  <rect width="512" height="512" fill="#14202b"/>
+  <rect x="28" y="28" width="456" height="456" rx="40" fill="#1c3044"/>
+  <circle cx="256" cy="118" r="34" fill="#e7b53a"/>
+  <circle cx="256" cy="112" r="16" fill="#fff4d2"/>
+  <path d="M92 196 L244 172 L244 400 L92 376 Z" fill="#f6f1e6"/>
+  <path d="M268 172 L420 196 L420 376 L268 400 Z" fill="#fffaf1"/>
+  <rect x="244" y="172" width="24" height="228" fill="#c6a36a"/>
+  <rect x="312" y="176" width="16" height="86" rx="2" fill="#d4892a"/>
+  <path d="M120 430 H392" stroke="#e7b53a" stroke-width="8" stroke-linecap="round"/>
+</svg>
