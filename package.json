@@ -15,7 +15,8 @@
     "data",
     "assets",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CREDITS.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -23,6 +24,7 @@
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts",
     "ingest": "tsx scripts/ingest.ts",
+    "check:terms": "tsx scripts/check-blocked-terms.ts",
     "dev:http": "tsx src/http.ts",
     "start": "node dist/stdio.js",
     "start:http": "node dist/http.js"
