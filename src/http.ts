@@ -1,10 +1,52 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { handleWebRequest } from "./web-handler.js";
 
 const port = Number(process.env.PORT ?? 3000);
 const host = process.env.HOST ?? "127.0.0.1";
 
+/** 1 MB. Requests larger than this are rejected with HTTP 413. */
+export const MAX_BODY_BYTES = 1_048_576;
+
+export type WebHandler = (request: Request) => Promise<Response>;
+
+class PayloadTooLargeError extends Error {
+  constructor() {
+    super("Request body exceeds 1 MB");
+    this.name = "PayloadTooLargeError";
+  }
+}
+
+function declaredContentLength(req: IncomingMessage): number | undefined {
+  const raw = req.headers["content-length"];
+  if (raw === undefined) return undefined;
+  const value = (Array.isArray(raw) ? raw[0] : raw)?.trim();
+  if (value === undefined || !/^\d+$/.test(value)) return undefined;
+  return Number(value);
+}
+
+async function readBody(req: IncomingMessage): Promise<Buffer> {
+  const declared = declaredContentLength(req);
+  if (declared !== undefined && declared > MAX_BODY_BYTES) {
+    throw new PayloadTooLargeError();
+  }
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of req) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buf.length;
+    if (total > MAX_BODY_BYTES) throw new PayloadTooLargeError();
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks);
+}
+
 async function toWebRequest(req: IncomingMessage): Promise<Request> {
+  const declared = declaredContentLength(req);
+  if (declared !== undefined && declared > MAX_BODY_BYTES) {
+    throw new PayloadTooLargeError();
+  }
   const hostHeader = req.headers.host ?? `${host}:${port}`;
   const url = `http://${hostHeader}${req.url ?? "/"}`;
   const method = req.method ?? "GET";
@@ -20,11 +62,7 @@ async function toWebRequest(req: IncomingMessage): Promise<Request> {
   if (method === "GET" || method === "HEAD" || method === "DELETE") {
     return new Request(url, { method, headers });
   }
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  const body = Buffer.concat(chunks);
+  const body = await readBody(req);
   return new Request(url, {
     method,
     headers,
@@ -42,20 +80,57 @@ function send(res: ServerResponse, response: Response, body: Buffer): void {
   res.end(body);
 }
 
-const server = createServer(async (req, res) => {
-  try {
-    const request = await toWebRequest(req);
-    const response = await handleWebRequest(request);
-    const body = Buffer.from(await response.arrayBuffer());
-    send(res, response, body);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Internal error";
-    res.statusCode = 500;
-    res.setHeader("content-type", "text/plain");
-    res.end(message);
-  }
-});
+function writeJson(res: ServerResponse, status: number, payload: unknown): void {
+  const body = JSON.stringify(payload);
+  res.statusCode = status;
+  res.setHeader("content-type", "application/json");
+  res.setHeader("content-length", Buffer.byteLength(body));
+  res.end(body);
+}
 
-server.listen(port, host, () => {
-  console.log(`wisdomforge-mcp listening on http://${host}:${port}/mcp`);
-});
+function rejectTooLarge(req: IncomingMessage, res: ServerResponse): void {
+  writeJson(res, 413, {
+    jsonrpc: "2.0",
+    error: { code: -32600, message: "Request body exceeds 1 MB" },
+    id: null,
+  });
+  req.resume();
+  res.on("finish", () => {
+    req.destroy();
+  });
+}
+
+export function createHttpServer(handle: WebHandler = handleWebRequest): Server {
+  return createServer(async (req, res) => {
+    try {
+      const request = await toWebRequest(req);
+      const response = await handle(request);
+      const body = Buffer.from(await response.arrayBuffer());
+      send(res, response, body);
+    } catch (err) {
+      if (err instanceof PayloadTooLargeError) {
+        rejectTooLarge(req, res);
+        return;
+      }
+      console.error(err);
+      if (!res.headersSent) {
+        writeJson(res, 500, { error: "Internal server error" });
+      } else {
+        res.end();
+      }
+    }
+  });
+}
+
+function isDirectRun(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return import.meta.url === pathToFileURL(resolve(entry)).href;
+}
+
+if (isDirectRun()) {
+  const server = createHttpServer();
+  server.listen(port, host, () => {
+    console.log(`wisdomforge-mcp listening on http://${host}:${port}/mcp`);
+  });
+}
