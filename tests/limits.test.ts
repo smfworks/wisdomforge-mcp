@@ -6,8 +6,16 @@ import { INPUT_LIMITS, createWisdomForgeServer } from "../src/server.js";
 const client = new Client({ name: "wisdomforge-limits", version: "0.0.0" });
 let closeServer: () => Promise<void> = async () => undefined;
 
-function textOf(result: { content?: { text?: string }[] }): string {
-  return (result.content ?? []).map((entry) => entry.text ?? "").join("\n");
+function textOf(result: unknown): string {
+  if (!result || typeof result !== "object" || !("content" in result) || !Array.isArray(result.content)) {
+    return "";
+  }
+  return result.content
+    .map((entry) => {
+      if (!entry || typeof entry !== "object" || !("text" in entry)) return "";
+      return typeof entry.text === "string" ? entry.text : "";
+    })
+    .join("\n");
 }
 
 async function call(name: string, args: Record<string, unknown>) {

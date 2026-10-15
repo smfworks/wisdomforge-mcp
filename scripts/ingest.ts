@@ -1,5 +1,5 @@
 /**
- * Build data/catalog.json and copy data/search-index.json from a wisdomforge checkout.
+ * Build data/catalog.json and data/search-index.json from a wisdomforge checkout.
  *
  * WF_SRC defaults to ../wisdomforge-src. Runtime does not need that checkout;
  * commit data/ after ingest.
@@ -8,13 +8,17 @@
  * If a PDF is missing locally it is fetched from https://smfwisdomforge.com.
  * If extraction is almost empty, the sibling public .md is used instead.
  * Those .md files are published manuscripts, not the private 1,332-document corpus.
+ *
+ * config/blocked-terms.json lists words to drop from catalog text, titles, and
+ * excerpts, and tokens to drop from the search index. The rest of each document stays.
  */
 import { execFile, execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync, copyFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { filterJsonStrings, filterSearchIndex, loadBlockedTerms } from "./blocked-terms.js";
 import type {
   Activity,
   BandId,
@@ -24,6 +28,7 @@ import type {
   LevelId,
   MediaKind,
   MediaLink,
+  SearchIndexFile,
   SubjectId,
 } from "../src/types.js";
 import {
@@ -529,12 +534,8 @@ async function main(): Promise<void> {
   };
 
   const searchIndexPath = join(srcRoot, "public", "search-index.json");
-  const searchIndex = JSON.parse(readFileSync(searchIndexPath, "utf8")) as {
-    version: number;
-    built: string;
-    docCount: number;
-    documents: { id: number; path: string; figure: string; file: string; title: string; len: number }[];
-  };
+  const searchIndexRaw = readFileSync(searchIndexPath, "utf8");
+  const searchIndex = JSON.parse(searchIndexRaw) as SearchIndexFile;
 
   const downloadsDir = join(srcRoot, "public", "downloads");
   const bookletFiles = new Map<string, BookletFiles>();
@@ -942,10 +943,15 @@ async function main(): Promise<void> {
     items,
   };
 
+  const terms = loadBlockedTerms();
+  const catalogOut = filterJsonStrings(catalog, terms);
+  const indexOut = filterSearchIndex(searchIndex, terms);
+
   const outDir = join(process.cwd(), "data");
   mkdirSync(outDir, { recursive: true });
-  writeFileSync(join(outDir, "catalog.json"), `${JSON.stringify(catalog)}\n`);
-  copyFileSync(searchIndexPath, join(outDir, "search-index.json"));
+  writeFileSync(join(outDir, "catalog.json"), `${JSON.stringify(catalogOut)}\n`);
+  const indexSuffix = searchIndexRaw.endsWith("\n") ? "\n" : "";
+  writeFileSync(join(outDir, "search-index.json"), `${JSON.stringify(indexOut)}${indexSuffix}`);
 
   const catalogBytes = statSync(join(outDir, "catalog.json")).size;
   const indexBytes = statSync(join(outDir, "search-index.json")).size;

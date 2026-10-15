@@ -117,6 +117,7 @@ npm run typecheck
 npm test
 npm run build
 npm run smoke
+npm run check:terms
 ```
 
 `smoke` builds nothing by itself. Run `npm run build` first. It spawns `dist/stdio.js`, expects 11 tools, calls every tool, then does the same check against the HTTP handler.
@@ -144,7 +145,9 @@ From a machine that has the wisdomforge checkout and `pdftotext` (poppler):
 WF_SRC=../wisdomforge-src npm run ingest
 ```
 
-Ingest records the source git SHA, copies `public/search-index.json`, and rewrites `data/catalog.json`. Commit `data/` afterward. CI does not re-run ingest; it tests the committed catalog.
+Ingest records the source git SHA, filters `public/search-index.json`, and rewrites `data/catalog.json` and `data/search-index.json`. Commit `data/` afterward. CI does not re-run ingest; it tests the committed catalog.
+
+Ingest reads `config/blocked-terms.json` and drops those words from catalog text, titles, and excerpts, and drops matching tokens from the search index. The rest of each document stays. Michael can add terms to `config/blocked-terms.json`. After changing the list, run ingest again (or `tsx scripts/blocked-terms.ts` to filter the committed `data/` files) and `npm run check:terms`. That check scans every file under `data/` and fails if a listed term is still present. CI runs it.
 
 If `booklets.ts` changes `BAND_TO_LEVEL`, ingest fails until `src/types.ts` is updated to match.
 
