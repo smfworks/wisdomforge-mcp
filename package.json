@@ -15,7 +15,8 @@
     "data",
     "assets",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CREDITS.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

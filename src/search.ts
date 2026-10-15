@@ -1,11 +1,14 @@
+/**
+ * BM25 tokenizer and ranking ported from smfworks/wisdomforge
+ * src/app/api/search/route.ts at commit 565aa88
+ * (MIT, Copyright SMF Works).
+ * https://github.com/smfworks/wisdomforge/blob/565aa88/src/app/api/search/route.ts
+ *
+ * Query tokens must stay identical or the shipped postings will not hit.
+ * The site build script scripts/build-search-index.mjs uses the same tokenizer.
+ */
 import { loadSearchIndex } from "./catalog.js";
 import type { CatalogItem, SearchIndexFile, SearchPostingEntry } from "./types.js";
-
-/**
- * Tokenizer and BM25 ranking ported from wisdomforge
- * src/app/api/search/route.ts (which matches scripts/build-search-index.mjs).
- * Query tokens must stay identical or the shipped postings will not hit.
- */
 
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "but", "by", "for",
