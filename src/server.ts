@@ -45,6 +45,27 @@ const TypeSchema = z.enum(ITEM_TYPES);
 const StyleSchema = z.enum(LEARNING_STYLES);
 const KindSchema = z.enum(["pdf", "epub", "mp3", "image", "markdown"]);
 
+export const INPUT_LIMITS = {
+  query: 500,
+  figure: 100,
+  itemId: 200,
+  courseId: 200,
+  cursor: 200,
+  interest: 100,
+  interests: 20,
+  excludeId: 200,
+  excludeIds: 200,
+} as const;
+
+const QuerySchema = z.string().max(INPUT_LIMITS.query);
+const FigureSchema = z.string().max(INPUT_LIMITS.figure);
+const ItemIdSchema = z.string().max(INPUT_LIMITS.itemId);
+const CourseIdSchema = z.string().max(INPUT_LIMITS.courseId);
+const CursorSchema = z.string().max(INPUT_LIMITS.cursor);
+const InterestSchema = z.string().max(INPUT_LIMITS.interest);
+const InterestsSchema = z.array(InterestSchema).max(INPUT_LIMITS.interests);
+const ExcludeIdsSchema = z.array(z.string().max(INPUT_LIMITS.excludeId)).max(INPUT_LIMITS.excludeIds);
+
 function wrap(data: object): CallToolResult {
   const payload = JSON.parse(JSON.stringify(data)) as Record<string, unknown>;
   return {
@@ -95,11 +116,11 @@ export function createWisdomForgeServer(): McpServer {
       description:
         "Rank WisdomForge items for a query. Uses the site's BM25 search index for corpus documents and the same tokenizer over catalog titles and excerpts. Optional filters: band, subject, type, figure. Default limit 10.",
       inputSchema: {
-        query: z.string().describe("Search text"),
+        query: QuerySchema.describe("Search text"),
         band: BandSchema.optional().describe("Age band: little, young, emerging, or adult"),
         subject: SubjectSchema.optional(),
         type: TypeSchema.optional(),
-        figure: z.string().optional().describe("Figure slug, for example epictetus"),
+        figure: FigureSchema.optional().describe("Figure slug, for example epictetus"),
         limit: z.number().int().min(1).max(50).optional().describe("Max hits, default 10"),
       },
       annotations: READONLY,
@@ -114,7 +135,7 @@ export function createWisdomForgeServer(): McpServer {
       description:
         "Fetch one catalog item. include=summary returns metadata, a short excerpt, media, and the Hermes prompt. include=chapters adds chapter text. include=full adds the stored body text.",
       inputSchema: {
-        item_id: z.string(),
+        item_id: ItemIdSchema,
         include: z.enum(["summary", "full", "chapters"]).optional(),
       },
       annotations: READONLY,
@@ -158,7 +179,7 @@ export function createWisdomForgeServer(): McpServer {
         band: BandSchema,
         subject: SubjectSchema.optional(),
         type: TypeSchema.optional(),
-        cursor: z.string().optional(),
+        cursor: CursorSchema.optional(),
         limit: z.number().int().min(1).max(100).optional(),
       },
       annotations: READONLY,
@@ -188,7 +209,7 @@ export function createWisdomForgeServer(): McpServer {
       description:
         "Ordered chapters or sittings for a course_id from list_courses. Each entry has an item_id.",
       inputSchema: {
-        course_id: z.string(),
+        course_id: CourseIdSchema,
       },
       annotations: READONLY,
     },
@@ -202,7 +223,7 @@ export function createWisdomForgeServer(): McpServer {
       description:
         "Public media URLs for an item (pdf, epub, mp3, image, markdown), with MIME type and size when known. The server does not proxy bytes. kinds filters the list; omit it for every kind on the item.",
       inputSchema: {
-        item_id: z.string(),
+        item_id: ItemIdSchema,
         kinds: z.array(KindSchema).optional(),
       },
       annotations: READONLY,
@@ -217,12 +238,12 @@ export function createWisdomForgeServer(): McpServer {
       description:
         "Objectives, Hermes pairing line and prompt, discussion questions, activities, cautions, and printable links for an item. learner_profile is optional and is not stored.",
       inputSchema: {
-        item_id: z.string(),
+        item_id: ItemIdSchema,
         learner_profile: z
           .object({
             age: z.number().int().min(0).max(120).optional(),
             learning_style: StyleSchema.optional(),
-            interests: z.array(z.string()).optional(),
+            interests: InterestsSchema.optional(),
           })
           .optional(),
       },
@@ -240,9 +261,9 @@ export function createWisdomForgeServer(): McpServer {
       inputSchema: {
         age: z.number().int().min(0).max(120),
         learning_style: StyleSchema,
-        interests: z.array(z.string()).optional(),
+        interests: InterestsSchema.optional(),
         subjects: z.array(SubjectSchema).optional(),
-        exclude_ids: z.array(z.string()).optional(),
+        exclude_ids: ExcludeIdsSchema.optional(),
         limit: z.number().int().min(1).max(25).optional(),
       },
       annotations: READONLY,
